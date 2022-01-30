@@ -1,0 +1,98 @@
+REF: https://www.youtube.com/watch?v=WPbrzB46_0k&t=1386s
+
+Admin access to Kubernetes cluster
+
+
+Workstation:
+
+apt-get install -y kubectl
+mkdir .kube - in home directory
+copy /root/.kube/config file master to workstation /home/vinoth/.kube/ directory
+kubectl get nodes
+
+RBAC - user access to kubernetes cluster
+
+Work Station:
+
+#adduser arun
+#openssl genrsa -out arun.key 2048
+#openssl req -new -key arun.key -out arun.csr -subj "/CN=arun"
+
+copy user arun csr and key to cluster master server
+
+Master:
+create certificate
+openssl x509 -req -in arun.csr -CA /etc/kubernetes/pki/ca.crt -CAkey /etc/kubernetes/pki/ca.key -CAcreateserial -out arun.crt -days 365
+copy the certificate to work station server
+
+create user in kubernetes cluster
+kubectl config set-credentials arun --client-certificate=arun.crt --client-key=arun.key
+
+set context
+root@ubuntu:~# kubectl config set-context arun --cluster=kubernetes --namespace=dev --user=arun
+
+create cluster role
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: dev
+  name: pod-creator
+rules:
+- apiGroups: [""] # "" indicates the core API group
+  resources: ["pods"]
+  verbs: ["get", "watch", "list", "create"]
+
+kubectl describe clusterrole.rbac.authorization.k8s.io/pod-creater -n dev
+
+
+
+create role binding
+
+apiVersion: rbac.authorization.k8s.io/v1
+
+kind: RoleBinding
+metadata:
+  name: pod-create-bind
+  namespace: dev
+subjects:
+- kind: User
+  name: arun
+  apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: Role 
+  name: pod-creater 
+  apiGroup: rbac.authorization.k8s.io
+
+kubectl describe rolebinding.rbac.authorization.k8s.io/pod-create-bind -n dev
+
+
+Set config file in workstation as below
+
+root@ubuntu:~# cat config
+apiVersion: v1
+clusters:
+- cluster:
+    certificate-authority-data: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUMvakNDQWVhZ0F3SUJBZ0lCQURBTkJna3Foa2lHOXcwQkFRc0ZBREFWTVJNd0VRWURWUVFERXdwcmRXSmwKY201bGRHVnpNQjRYRFRJeU1ERXlNekUxTXpNMU0xb1hEVE15TURFeU1URTFNek0xTTFvd0ZURVRNQkVHQTFVRQpBeE1LYTNWaVpYSnVaWFJsY3pDQ0FTSXdEUVlKS29aSWh2Y05BUUVCQlFBRGdnRVBBRENDQVFvQ2dnRUJBTDZVCktjeHFuMnhZem1UWG5mK2x2TnlRK1JVbFpkMzNCZXFDSjAyd3ZBeDR4cjF4eFd2YzVQakZpSlNReHNrRjR1RVoKMkcvMWNTQlg5MGY3QnRRRFRmZms1aGJCWnV5VVJ1cG5qNGNzRkVtandBbXRsc2NZZmV6VkFFUlhMRFg5T2REdgpkY1M4OXVGd0NtbnpmS0lqRXhHdy9KQUZMVS9CL2tTZ3h0M0FuVkdxdmozOE1Od3YvdUVEQm8yZHZvRlgzUlBXCkN5N1NiQ1dobHVHWDFEWFpWSnNXSlBDSnphT2k4RW9nNlZLczZRNXVEQk51cTZVbElBektSb0xBV2pubWVMRFUKQzVCaWtEcU9PQ0NxWEVlZlJ3UTJNNWpyNm9kcnhGb2wyQSs1bzJLQ3ArQlhrcjFIZ2NlTEVpS0o1ZWVjcEJMVApaWG9XMFVsd0hETm1MUEVGOEY4Q0F3RUFBYU5aTUZjd0RnWURWUjBQQVFIL0JBUURBZ0trTUE4R0ExVWRFd0VCCi93UUZNQU1CQWY4d0hRWURWUjBPQkJZRUZDYW9RTWVodjV0MVJkcE9BK3BOZzRIaU16Qk9NQlVHQTFVZEVRUU8KTUF5Q0NtdDFZbVZ5Ym1WMFpYTXdEUVlKS29aSWh2Y05BUUVMQlFBRGdnRUJBR0lQOGxMbm1XS29Iak4zNjM0KwpmRCt5QUlXYnZDdWh0Qi93dnFQNC9YdkpIN3ZJczZUeEFxNFhTUTRhSEFRS1JiMitNUEt6enR4V0dxaE1vNUF4CmFHNitOQnFSTk9pUWJnMGZYSGtGb2JzSy9jZUlqaDFteSt5T3BmYm02NVRXclpKeDVCcWxvWmVFZVVxNlNUZysKQ0xhYVZpZkJoQjY3UStUd2QzN01ISnBlN0o5aUZDYnN3cDRNd05VdFVkM01VMzZFaHMwVmtINkxmdDYxSzI5WQpXQ3I4eGxKQjNiWHNpNFpuMXhBNFpTVG1kWnV0YjBkTnY4azR5L1QvSEZRZitHSkUvR2Z1c2tDZUJWRmJvdXUwCndXL1ZtUnJvcTRXcGVpNTQ4QXVOYXFhbDZ5UmMwRFZ0QkdiaGVFNnpacVFHSzNOYWoxK1g1TFV0WDN4cUtKSUEKZUQwPQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCg==
+    server: https://10.148.0.6:6443
+  name: kubernetes
+contexts:
+- context:
+    cluster: kubernetes
+    namespace: dev
+    user: arun
+  name: arun
+current-context: arun
+kind: Config
+preferences: {}
+users:
+- name: arun
+  user:
+    client-certificate: /home/arun/arun.crt
+    client-key: /home/arun/arun.key
+
+workstation# kubectl get pods
+
+
+
+
